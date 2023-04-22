@@ -15,13 +15,13 @@ public class TrainingController {
     private TrainingService trainingService;
 
     @PostMapping("/one-player")
-    public ResponseEntity trainOnePlayer() {
+    public ResponseEntity<String> trainOnePlayer() {
         trainingService.submitSinglePlayerTraining();
         return ResponseEntity.ok("One Player training has started.");
     }
 
     @PostMapping("/two-player")
-    public ResponseEntity trainTwoPlayer() {
+    public ResponseEntity<String> trainTwoPlayer() {
         trainingService.submitTwoPlayerTraining();
         return ResponseEntity.ok("Two Player training has started.");
     }

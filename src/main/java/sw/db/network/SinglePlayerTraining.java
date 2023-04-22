@@ -13,12 +13,11 @@ public class SinglePlayerTraining {
 
     private static final String PATH_PREFIX = "/temp/network/";
 
-    private final Game game;
     private final SinglePlayerEnvironment environment;
     private final QLearningDiscreteDense<GameState> agent;
 
     public SinglePlayerTraining() {
-        game = new Game();
+        Game game = new Game();
         environment = new SinglePlayerEnvironment(game);
         DQNFactoryStdDense netConf = NetworkUtils.buildDQNFactory();
         QLearningConfiguration qlConf = NetworkUtils.buildConfig();

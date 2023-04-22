@@ -5,6 +5,8 @@ import org.nd4j.linalg.api.ndarray.INDArray;
 import org.nd4j.linalg.factory.Nd4j;
 import sw.db.game.State;
 
+import java.util.Arrays;
+
 public class GameObservationSpace implements ObservationSpace<GameState> {
     private static final double[] LOWS = createValueArray(0.0);
     private static final double[] HIGHS = createValueArray(1.0);
@@ -31,9 +33,7 @@ public class GameObservationSpace implements ObservationSpace<GameState> {
 
     private static double[] createValueArray(final double value) {
         final double[] values = new double[State.SIZE];
-        for (int i = 0; i < State.SIZE; i++) {
-            values[i] = value;
-        }
+        Arrays.fill(values, value);
         return values;
     }
 }

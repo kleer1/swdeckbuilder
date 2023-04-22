@@ -15,5 +15,4 @@ public enum StaticEffect {
     ExileNextNeutralPurchase,
     CarrierEffect,
     Yavin4Effect,
-    ;
 }

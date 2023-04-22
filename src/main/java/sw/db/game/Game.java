@@ -41,7 +41,7 @@ public class Game {
     private Card lastCardPlayed;
     private Card lastCardActivated;
     private double reward = 0.0;
-    private Set<Faction> readyPlayers = Collections.synchronizedSet(new HashSet<>());
+    private final Set<Faction> readyPlayers = Collections.synchronizedSet(new HashSet<>());
     private Map<Faction, Integer> knowsTopCardOfDeck;
     private List<PlayableCard> attackers = new ArrayList<>();
     private Card attackTarget;
@@ -49,17 +49,17 @@ public class Game {
     private boolean canSeeOpponentsHand;
     private List<PlayableCard> exileAtEndOfTurn;
     private PlayableCard aNewHope1;
-    private Object lock = new Object();
+    private final Object lock = new Object();
     private Set<Integer> availableActions;
-    private AtomicBoolean isGameOver = new AtomicBoolean(true);
+    private final AtomicBoolean isGameOver = new AtomicBoolean(true);
 
     public synchronized void initialize() {
         initialize(Faction.empire);
         initialize(Faction.rebellion);
     }
 
-    public boolean isGameOver() {
-        return isGameOver.get();
+    public boolean isInProgress() {
+        return !isGameOver.get();
     }
 
     public synchronized void initialize(Faction faction) {
@@ -109,8 +109,8 @@ public class Game {
         availableActions = internalGetAvailableAction();
     }
 
-    public synchronized boolean isGameReady() {
-        return readyPlayers.size() == 2;
+    public synchronized boolean isWaitingOnPlayer() {
+        return readyPlayers.size() != 2;
     }
 
     public Set<Integer> getAvailableActions() {
@@ -138,10 +138,7 @@ public class Game {
                     if (action == null) {
                         return false;
                     }
-                    if (!isValidAction(actionSpace, action, card, currentPlayer)) {
-                        return false;
-                    }
-                    return true;
+                    return isValidAction(actionSpace, action, card, currentPlayer);
                 }).collect(Collectors.toSet());
     }
 
@@ -215,12 +212,16 @@ public class Game {
         boolean isPendingAction = !pendingActions.isEmpty();
         boolean endedTurn = false;
         log.info("Valid " + action + " -> " + (card != null ? card : actionIndex) + " before state:\n" + currentPlayer);
-        switch (action) {
+        switch (Objects.requireNonNull(action)) {
             case PlayCard -> {
-                if (staticEffects.contains(StaticEffect.DrawOnFirstNeutralCard) && card.getFaction() == Faction.neutral) {
-                    currentPlayer.drawCards(1);
-                    staticEffects.removeAll(List.of(StaticEffect.DrawOnFirstNeutralCard));
+                if (staticEffects.contains(StaticEffect.DrawOnFirstNeutralCard)) {
+                    assert card != null;
+                    if (card.getFaction() == Faction.neutral) {
+                        currentPlayer.drawCards(1);
+                        staticEffects.removeAll(List.of(StaticEffect.DrawOnFirstNeutralCard));
+                    }
                 }
+                assert playableCard != null;
                 playableCard.moveToInPlay();
                 if (card instanceof HasOnPlayAction) {
                     pendingActions.addAll(((HasOnPlayAction) card).getActions());
@@ -229,6 +230,8 @@ public class Game {
                 reward = 1.0;
             }
             case PurchaseCard -> {
+                assert card != null;
+                assert playableCard != null;
                 if (card.getLocation() == CardLocation.GalaxyRow) {
                     drawGalaxyCard();
                 }
@@ -266,6 +269,7 @@ public class Game {
                 reward = playableCard.getCost();
             }
             case UseCardAbility -> {
+                assert card != null;
                 ((HasAbility) card).applyAbility();
                 lastCardActivated = card;
                 reward = 1.0;
@@ -276,12 +280,14 @@ public class Game {
                 reward = 1.0;
             }
             case SelectAttacker -> {
+                assert playableCard != null;
                 playableCard.setAttacked();
                 attackers.add(playableCard);
                 pendingActions.add(PendingAction.of(Action.SelectAttacker));
                 reward = 1.0;
             }
             case DiscardFromHand, DurosDiscard, BWingDiscard -> {
+                assert playableCard != null;
                 playableCard.moveToDiscard();
                 reward = 4 - playableCard.getCost();
                 if (staticEffects.contains(StaticEffect.Yavin4Effect) && currentPlayersAction == Faction.empire
@@ -290,6 +296,7 @@ public class Game {
                 }
             }
             case DiscardCardFromCenter -> {
+                assert playableCard != null;
                 playableCard.moveToGalaxyDiscard();
                 drawGalaxyCard();
                 if (card.getFaction() == currentPlayer.getOpponent().getFaction()) {
@@ -297,16 +304,19 @@ public class Game {
                 }
             }
             case ExileCard, JabbaExile -> {
+                assert playableCard != null;
                 playableCard.moveToExile();
                 if (playableCard.getCost() == 0) {
                     reward = 5.0;
                 }
             }
             case ReturnCardToHand -> {
+                assert playableCard != null;
                 playableCard.moveToHand();
                 reward += playableCard.getCost();
             }
             case ChooseNextBase -> {
+                assert base != null;
                 base.makeCurrentBase();
                 if (base instanceof HasOnReveal) {
                     ((HasOnReveal) base).applyOnReveal();
@@ -315,10 +325,12 @@ public class Game {
             }
             case SwapTopCardOfDeck -> {
                 galaxyDeck.get(0).moveToGalaxyRow();
+                assert playableCard != null;
                 playableCard.moveToTopOfGalaxyDeck();
                 revealTopCardOfDeck();
             }
             case FireWhenReady -> {
+                assert playableCard != null;
                 currentPlayer.addResources(-4);
                 if (card.getLocation() == CardLocation.GalaxyRow) {
                     playableCard.moveToGalaxyDiscard();
@@ -332,6 +344,7 @@ public class Game {
                 }
             }
             case GalacticRule -> {
+                assert playableCard != null;
                 playableCard.moveToGalaxyDiscard();
                 knowsTopCardOfDeck.put(Faction.empire, 1);
             }
@@ -340,20 +353,24 @@ public class Game {
                 pendingActions.add(PendingAction.of(Action.ANewHope2));
             }
             case ANewHope2 -> {
+                assert playableCard != null;
                 playableCard.moveToGalaxyDiscard();
                 aNewHope1.moveToGalaxyRow();
                 aNewHope1 = null;
                 rebel.addResources(1);
             }
             case JynErsoTopDeck -> {
+                assert playableCard != null;
                 playableCard.moveToTopOfDeck();
                 revealTopCardOfDeck();
                 reward = playableCard.getCost();
             }
             case LukeDestroyShip -> {
+                assert playableCard != null;
                 playableCard.moveToDiscard();
             }
             case HammerHeadAway -> {
+                assert playableCard != null;
                 if (playableCard.getLocation() == CardLocation.GalaxyRow) {
                     playableCard.moveToGalaxyDiscard();
                     drawGalaxyCard();
@@ -385,9 +402,8 @@ public class Game {
             }
             case AttackNeutralCard -> pendingActions.add(PendingAction.of(Action.AttackCenterRow));
             case ConfirmAttackers -> {
-                if (attackTarget instanceof PlayableCard) {
+                if (attackTarget instanceof PlayableCard playableCardAttackTarget) {
                     // Attack center row
-                    PlayableCard playableCardAttackTarget = (PlayableCard) attackTarget;
                     if (playableCardAttackTarget instanceof IsTargetable) {
                         ((IsTargetable) playableCardAttackTarget).applyReward();
                     } else {
@@ -403,7 +419,7 @@ public class Game {
                     drawGalaxyCard();
                 } else if (attackTarget instanceof Base) {
                     // Attack base
-                    int totalAttack = attackers.stream().mapToInt(a -> a.getAttack()).sum();
+                    int totalAttack = attackers.stream().mapToInt(PlayableCard::getAttack).sum();
                     assignDamageToBase(totalAttack, currentPlayer.getOpponent());
                 }
                 attackTarget = null;
@@ -526,18 +542,14 @@ public class Game {
                                 !currentPlayer.getOpponent().getShipsInPlay().isEmpty());
             }
             case SelectAttacker -> {
-                if (!(card instanceof PlayableCard)) {
+                if (!(card instanceof PlayableCard playableCard)) {
                     return false;
                 }
-                PlayableCard playableCard = (PlayableCard) card;
                 if (!playableCard.canAttack()) {
                     return false;
                 }
-                if (card.getLocation() != CardLocation.getUnitsInPlay(currentPlayer.getFaction()) &&
-                        card.getLocation() != CardLocation.getShipsInPlay(currentPlayer.getFaction())) {
-                    return false;
-                }
-                return true;
+                return card.getLocation() == CardLocation.getUnitsInPlay(currentPlayer.getFaction()) ||
+                        card.getLocation() == CardLocation.getShipsInPlay(currentPlayer.getFaction());
             }
             case DiscardFromHand, DurosDiscard, BWingDiscard -> {
                 return canDiscardFromHand(card, currentPlayer);
@@ -630,10 +642,9 @@ public class Game {
                 card.getFaction() != currentPlayersAction && card.getFaction() != Faction.neutral) {
             return false;
         }
-        if (!(card instanceof PlayableCard)) {
+        if (!(card instanceof PlayableCard playableCard)) {
             return false;
         }
-        PlayableCard playableCard = (PlayableCard) card;
 
         if (!staticEffects.contains(StaticEffect.NextFactionPurchaseIsFree) &&
                 !staticEffects.contains(StaticEffect.NextFactionOrNeutralPurchaseIsFree)
@@ -656,10 +667,7 @@ public class Game {
         if (!(card instanceof HasAbility)) {
             return false;
         }
-        if (!((HasAbility) card).abilityActive()) {
-            return false;
-        }
-        return true;
+        return ((HasAbility) card).abilityActive();
     }
 
     private boolean canAttackCardInCenter(Card card, Player player) {
@@ -721,10 +729,7 @@ public class Game {
         if (choice == null) {
             return false;
         }
-        if (choice == ResourceOrRepair.Repair && player.getCurrentBase().getCurrentDamage() == 0) {
-            return false;
-        }
-        return true;
+        return choice != ResourceOrRepair.Repair || player.getCurrentBase().getCurrentDamage() != 0;
     }
 
     private boolean canReturnCardToHand(Card card, Player player) {
@@ -734,14 +739,12 @@ public class Game {
         if (card.getLocation() != CardLocation.getDiscard(player.getFaction())) {
             return false;
         }
-        if (!(lastCardActivated instanceof HasReturnToHandAbility)) {
+        if (!(lastCardActivated instanceof HasReturnToHandAbility source)) {
             return false;
         }
-        if (!(card instanceof PlayableCard)) {
+        if (!(card instanceof PlayableCard playableCard)) {
             return false;
         }
-        PlayableCard playableCard = (PlayableCard) card;
-        HasReturnToHandAbility source = (HasReturnToHandAbility) lastCardActivated;
         return source.isValidTarget(playableCard);
     }
 
@@ -752,10 +755,7 @@ public class Game {
         if (card.getLocation() != CardLocation.GalaxyRow) {
             return false;
         }
-        if (galaxyDeck.isEmpty()) {
-            return false;
-        }
-        return true;
+        return !galaxyDeck.isEmpty();
     }
 
     private boolean canFireWhenReady(Card card, Player player) {
@@ -766,10 +766,7 @@ public class Game {
             return false;
         }
 
-        if (card.getLocation() != CardLocation.GalaxyRow && card.getLocation() != CardLocation.getShipsInPlay(Faction.rebellion)) {
-            return false;
-        }
-        return true;
+        return card.getLocation() == CardLocation.GalaxyRow || card.getLocation() == CardLocation.getShipsInPlay(Faction.rebellion);
     }
 
     private boolean canGalacticRule(Card card, Player player) {
@@ -781,10 +778,9 @@ public class Game {
             return false;
         }
 
-        if (!(card instanceof PlayableCard)) {
+        if (!(card instanceof PlayableCard playableCard)) {
             return false;
         }
-        PlayableCard playableCard = (PlayableCard) card;
         return  playableCard.getLocation() == CardLocation.GalaxyDeck &&
                 (playableCard.equals(galaxyDeck.get(0)) || playableCard.equals(galaxyDeck.get(1)));
     }
@@ -806,7 +802,7 @@ public class Game {
         if (attackTarget == null || attackers.isEmpty()) {
             return false;
         }
-        int totalAttack = attackers.stream().mapToInt(p -> p.getAttack()).sum();
+        int totalAttack = attackers.stream().mapToInt(PlayableCard::getAttack).sum();
         if (attackTarget instanceof PlayableCard) {
             if (attackTarget instanceof IsTargetable) {
                 return totalAttack >= ((IsTargetable) attackTarget).getTargetValue();
@@ -816,15 +812,6 @@ public class Game {
             }
         }
         return true;
-    }
-
-    private void discardGalaxyCard(PlayableCard card) {
-        galaxyRow.remove(card);
-        galaxyDiscard.add(card);
-        card.setLocation(CardLocation.GalaxyDiscard);
-        card.setCardList(galaxyDiscard);
-        card.setOwner(null);
-        drawGalaxyCard();
     }
 
     public void drawGalaxyCard() {

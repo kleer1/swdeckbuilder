@@ -23,8 +23,8 @@ public class TwoPlayerTraining {
     private final Game game;
     private final TwoPlayerEnvironment imperialEnvironment;
     private final TwoPlayerEnvironment rebelEnvironment;
-    private QLearningDiscreteDense<GameState> imperialAgent;
-    private QLearningDiscreteDense<GameState> rebelAgent;
+    private final QLearningDiscreteDense<GameState> imperialAgent;
+    private final QLearningDiscreteDense<GameState> rebelAgent;
 
     public TwoPlayerTraining() {
         game = new Game();

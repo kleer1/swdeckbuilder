@@ -10,6 +10,7 @@ import sw.db.cards.common.models.Faction;
 import sw.db.game.ActionSpace;
 import sw.db.game.Game;
 
+@SuppressWarnings("BusyWait")
 @Slf4j
 @Getter
 public class TwoPlayerEnvironment implements MDP<GameState, Integer, DiscreteSpace> {
@@ -37,7 +38,7 @@ public class TwoPlayerEnvironment implements MDP<GameState, Integer, DiscreteSpa
 
     @Override
     public GameState reset() {
-        while (!game.isGameOver()) {
+        while (game.isInProgress()) {
             try {
                 Thread.sleep(5);
             } catch (InterruptedException e) {
@@ -45,7 +46,7 @@ public class TwoPlayerEnvironment implements MDP<GameState, Integer, DiscreteSpa
             }
         }
         game.initialize(faction);
-        while (!game.isGameReady()) {
+        while (game.isWaitingOnPlayer()) {
             try {
                 Thread.sleep(5);
             } catch (InterruptedException e) {
@@ -85,9 +86,6 @@ public class TwoPlayerEnvironment implements MDP<GameState, Integer, DiscreteSpa
                 throw new RuntimeException(e);
             }
         }
-        if (isDone()) {
-            int i = 1 + 1;
-        }
         final GameState nextState = game.getGameState();
         return new StepReply<>(
                 nextState,
@@ -104,7 +102,7 @@ public class TwoPlayerEnvironment implements MDP<GameState, Integer, DiscreteSpa
 
     @Override
     public MDP<GameState, Integer, DiscreteSpace> newInstance() {
-        while (!game.isGameOver()) {
+        while (game.isInProgress()) {
             try {
                 Thread.sleep(5);
             } catch (InterruptedException e) {
@@ -112,7 +110,7 @@ public class TwoPlayerEnvironment implements MDP<GameState, Integer, DiscreteSpa
             }
         }
         game.initialize(faction);
-        while (!game.isGameReady()) {
+        while (game.isWaitingOnPlayer()) {
             try {
                 Thread.sleep(5);
             } catch (InterruptedException e) {

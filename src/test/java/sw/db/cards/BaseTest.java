@@ -34,8 +34,7 @@ public class BaseTest implements HasMoveToInPlay, HasGame{
     public List<PlayableCard> moveToInPlay(Class<?> c, Player player, int amount) {
         List<PlayableCard> cards = new ArrayList<>();
         for (Card card : game.getCardMap().values()) {
-            if (card instanceof PlayableCard) {
-                PlayableCard playableCard = (PlayableCard) card;
+            if (card instanceof PlayableCard playableCard) {
                 if (playableCard.getClass() == c) {
                     if (BUY_LOCATION.contains(playableCard.getLocation())) {
                         playableCard.buyToHand(player);
@@ -67,8 +66,7 @@ public class BaseTest implements HasMoveToInPlay, HasGame{
     protected List<PlayableCard> moveToGalaxyRow(Class<?> c, int amount) {
         List<PlayableCard> cards = new ArrayList<>();
         for (Card card : game.getCardMap().values()) {
-            if (card instanceof PlayableCard) {
-                PlayableCard playableCard = (PlayableCard) card;
+            if (card instanceof PlayableCard playableCard) {
                 if (playableCard.getClass() == c) {
                     playableCard.moveToGalaxyRow();
                     cards.add(playableCard);

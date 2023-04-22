@@ -6,7 +6,6 @@ import sw.db.cards.common.models.Stats;
 
 import java.util.Arrays;
 import java.util.List;
-import java.util.stream.Collectors;
 
 @Getter
 public enum ActionSpace {
@@ -23,11 +22,11 @@ public enum ActionSpace {
 //    BuyGalaxyDiscard(149)
     ;
 
-    public static int SIZE = 149;
+    public static final int SIZE = 149;
 
 
-    private int minRange;
-    private int maxRange;
+    private final int minRange;
+    private final int maxRange;
     private Stats stats;
     private ResourceOrRepair resourceOrRepair;
 
@@ -53,7 +52,7 @@ public enum ActionSpace {
         this.maxRange = maxRange;
     }
 
-    private static List<ActionSpace> values = Arrays.stream(values()).collect(Collectors.toList());
+    private static final List<ActionSpace> values = Arrays.stream(values()).toList();
 
     public static ActionSpace getActionSpaceByIndex(int index) {
         return values.stream().filter(as -> index >= as.minRange && index <= as.maxRange).findFirst().orElse(null);

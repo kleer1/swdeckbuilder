@@ -13,7 +13,7 @@ public interface IsBountyHunterCardTest extends BasePlayableCard {
         Game game = getGame();
         PlayableCard card = getCard();
         card.moveToInPlay();
-        PlayableCard target = null;
+        PlayableCard target;
         if (game.getCurrentPlayersAction() == Faction.empire) {
             // add y-wing id = 50
             target = (PlayableCard) game.getCardMap().get(50);
@@ -22,6 +22,7 @@ public interface IsBountyHunterCardTest extends BasePlayableCard {
             target = (PlayableCard) game.getCardMap().get(10);
         }
         target.moveToGalaxyRow();
+        verifyPreBounty();
         game.applyAction(target.getId());
         game.applyAction(card.getId());
         game.applyAction(ActionSpace.ConfirmAttackers.getMinRange());

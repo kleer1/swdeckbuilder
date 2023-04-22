@@ -36,9 +36,10 @@ import java.util.stream.Stream;
 import static org.hamcrest.Matchers.*;
 import static org.hamcrest.junit.MatcherAssert.assertThat;
 
+@SuppressWarnings("DataFlowIssue")
 class GameTest {
 
-    private Game game = new Game();
+    private final Game game = new Game();
 
     @BeforeEach
     void setUp() {
@@ -81,7 +82,7 @@ class GameTest {
         emptyHand(game.getEmpire());
         for (int i : getRandomizedInvalidActions(Set.of(140))) {
             game.applyAction(i);
-            assertThat("asserting action " + i, game.getReward(), equalTo(game.INVALID_ACTION_REWARD));
+            assertThat("asserting action " + i, game.getReward(), equalTo(Game.INVALID_ACTION_REWARD));
         }
     }
 
@@ -92,7 +93,7 @@ class GameTest {
         emptyHand(game.getRebel());
         for (int i : getRandomizedInvalidActions(Set.of(140))) {
             game.applyAction(i);
-            assertThat("asserting action " + i, game.getReward(), equalTo(game.INVALID_ACTION_REWARD));
+            assertThat("asserting action " + i, game.getReward(), equalTo(Game.INVALID_ACTION_REWARD));
         }
     }
 
@@ -323,10 +324,6 @@ class GameTest {
         return Stream.concat(list1.stream(), list2.stream()).collect(Collectors.toList());
     }
 
-    private PlayableCard getPlayableCardFromMap(final int id) {
-        return (PlayableCard) game.getCardMap().get(id);
-    }
-
     private static List<Integer> getRandomizedInvalidActions(Set<Integer> excludes) {
         List<Integer> list = Stream.iterate(0, i -> i + 1)
                 .limit(149)
@@ -347,7 +344,7 @@ class GameTest {
             game.getPendingActions().add(PendingAction.of(pendingAction));
             for (int i : getRandomizedInvalidActions(getExcludesFromCardLocations(game, validLocations, validActionSpaces))) {
                 game.applyAction(i);
-                assertThat("asserting action " + i, game.getReward(), equalTo(game.INVALID_ACTION_REWARD));
+                assertThat("asserting action " + i, game.getReward(), equalTo(Game.INVALID_ACTION_REWARD));
             }
         }
 
@@ -366,7 +363,7 @@ class GameTest {
             game.getPendingActions().add(PendingAction.of(pendingAction));
             for (int i : getRandomizedInvalidActions(getExcludesFromCardLocations(game, validLocations, validActionSpaces))) {
                 game.applyAction(i);
-                assertThat("asserting action " + i + " with pending action " + pendingAction, game.getReward(), equalTo(game.INVALID_ACTION_REWARD));
+                assertThat("asserting action " + i + " with pending action " + pendingAction, game.getReward(), equalTo(Game.INVALID_ACTION_REWARD));
             }
         }
 
@@ -405,7 +402,7 @@ class GameTest {
                     actions = game.getCurrentPlayer().getUnitsInPlay().stream()
                             .map(Card::getId).collect(Collectors.toList());
                     actions.addAll(game.getCurrentPlayer().getShipsInPlay().stream()
-                            .map(Card::getId).collect(Collectors.toList()));
+                            .map(Card::getId).toList());
                     for (int action : actions) {
                         numActions++;
                         game.applyAction(action);
@@ -469,7 +466,7 @@ class GameTest {
             actionCounts.add(numActions);
             System.out.println("Game " + i + " complete");
         }
-        System.out.println("Average number of actions in game: " + (actionCounts.stream().reduce(0, (a, b) -> a + b) / (double) iterations));
+        System.out.println("Average number of actions in game: " + (actionCounts.stream().reduce(0, Integer::sum) / (double) iterations));
         System.out.println("Max actions: " + actionCounts.stream().max(Integer::compareTo));
     }
 
@@ -486,7 +483,7 @@ class GameTest {
                     .append("},");
         }
         builder.append("]");
-        System.out.println(builder.toString());
+        System.out.println(builder);
     }
 
     private static Stream<Arguments> invalidPendingActionsEmpire() {

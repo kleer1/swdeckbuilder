@@ -19,6 +19,6 @@ class StateTest {
     @Test
     void testSize() {
         State state = new State(game.getCurrentPlayer());
-        assertThat(state.buildInputs().length, equalTo(state.SIZE));
+        assertThat(state.buildInputs().length, equalTo(State.SIZE));
     }
 }

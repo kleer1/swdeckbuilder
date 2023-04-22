@@ -23,7 +23,7 @@ class EndorTest extends EmpireAvailableBaseTest implements HasOnRevealTest, HasA
         assertThat(getPlayer().getAvailableAttack(), equalTo(3));
         stormtrooper.moveToDiscard();
 
-        moveToInPlay(AtAt.class, getPlayer()).get(0);
+        moveToInPlay(AtAt.class, getPlayer());
         assertThat(getPlayer().getAvailableAttack(), equalTo(7));
         stormtrooper.moveToInPlay();
         assertThat(getPlayer().getAvailableAttack(), equalTo(10));
