@@ -308,6 +308,8 @@ public class Game {
                 playableCard.moveToExile();
                 if (playableCard.getCost() == 0) {
                     reward = 5.0;
+                } else {
+                    reward = 3 - playableCard.getCost();
                 }
             }
             case ReturnCardToHand -> {
@@ -379,9 +381,16 @@ public class Game {
                 }
             }
             case PassTurn -> {
-                if (availableActions.size() > 1 && !Collections.disjoint(availableActions, PUNISH_IF_PASS_ACTIONS)) {
-                    log.warn(currentPlayer.getFaction() + " passed while still able to attack or play cards. " + availableActions);
-                    reward = INVALID_ACTION_REWARD;
+                if (availableActions.size() > 1) {
+                    // !Collections.disjoint(availableActions, PUNISH_IF_PASS_ACTIONS)
+                    Set<Action> possibleActions = availableActions.stream()
+                            .filter(i -> i != ActionSpace.PassTurn.getMinRange())
+                            .map(i ->  determineAction(ActionSpace.getActionSpaceByIndex(i), cardMap.get(i), currentPlayer))
+                            .collect(Collectors.toSet());
+                    if (!Collections.disjoint(possibleActions, PUNISH_IF_PASS_ACTIONS)) {
+                        log.warn(currentPlayer.getFaction() + " passed while still able to attack or play cards. " + availableActions);
+                        reward = INVALID_ACTION_REWARD;
+                    }
                 }
                 endedTurn = true;
             }
@@ -426,6 +435,13 @@ public class Game {
                 attackers = new ArrayList<>();
             }
         }
+        PendingAction pendingAction = null;
+        if (isPendingAction) {
+            pendingAction = pendingActions.remove(0);
+            if (action != Action.DeclineAction) {
+                pendingAction.executeCallback();
+            }
+        }
         reward += rewardCalculator.determineReward(this);
 
         if (isGameComplete()) {
@@ -441,14 +457,8 @@ public class Game {
         }
 
 
-        if (isPendingAction) {
-            PendingAction pendingAction = pendingActions.remove(0);
-            if (action != Action.DeclineAction) {
-                pendingAction.executeCallback();
-            }
-            if (pendingAction.shouldPassAction()) {
-                passCurrentAction();
-            }
+        if (pendingAction != null && pendingAction.shouldPassAction()) {
+            passCurrentAction();
         }
 
         if (!pendingActions.isEmpty() && pendingActions.get(0).shouldPassAction()) {

@@ -470,6 +470,152 @@ class GameTest {
         System.out.println("Max actions: " + actionCounts.stream().max(Integer::compareTo));
     }
 
+    @Test
+    void testRewardPurchaseCard() {
+        PlayableCard darth = getFromCardMap(DarthVader.class, game.getCardMap());
+        darth.moveToGalaxyRow();
+        game.getCurrentPlayer().addResources(8);
+        game.applyAction(darth.getId());
+        assertThat(game.getReward(), equalTo((double) darth.getCost()));
+    }
+
+    @Test
+    void testRewardPlayCard() {
+        PlayableCard shuttle = getFromCardMap(ImperialShuttle.class, game.getCardMap());
+        shuttle.moveToHand();
+        game.applyAction(shuttle.getId());
+        // Base 1 + 1 for resource gain
+        assertThat(game.getReward(), equalTo(2.0));
+
+        game.initialize();
+        PlayableCard trooper = getFromCardMap(Stormtrooper.class, game.getCardMap());
+        trooper.moveToHand();
+        game.applyAction(trooper.getId());
+        // base of 1.0 + 2.0 for attack added
+        assertThat(game.getReward(), equalTo(3.0));
+
+        game.initialize();
+        PlayableCard mystic = getFromCardMap(KelDorMystic.class, game.getCardMap());
+        mystic.buyToHand(game.getCurrentPlayer());
+        game.applyAction(mystic.getId());
+        // base 1.0 + 2.0 for force increase
+        assertThat(game.getReward(), equalTo(3.0));
+
+        game.initialize();
+        PlayableCard darth = getFromCardMap(DarthVader.class, game.getCardMap());
+        darth.buyToHand(game.getCurrentPlayer());
+        game.applyAction(darth.getId());
+        // base 1.0 + 6.0 from attack + 2.0 from force
+        assertThat(game.getReward(), equalTo(9.0));
+    }
+
+    @Test
+    void testRewardUseCardAbility() {
+        // Test card draw ability
+        PlayableCard lando = getCardAndMoveToInPlay(LandoCalrissian.class, game);
+        game.applyAction(lando.getId());
+        // base 1.0 + 2.0 for each card drawn
+        assertThat(game.getReward(), equalTo(3.0));
+
+        // Test add to hand (should be eq reward to drawing a card)
+        game.initialize();
+        PlayableCard sailBarge = getCardAndMoveToInPlay(JabbasSailBarge.class, game);
+        PlayableCard boba = getFromCardMap(BobaFett.class, game.getCardMap());
+        boba.buy(game.getCurrentPlayer());
+        game.applyAction(sailBarge.getId());
+        assertThat(game.getReward(), equalTo(3.0));
+
+        // Test opponent discards card
+        game.initialize();
+        game.applyAction(ActionSpace.PassTurn.getMinRange());
+        PlayableCard speeder = getCardAndMoveToInPlay(Snowspeeder.class, game);
+        game.applyAction(speeder.getId());
+        assertThat(game.getReward(), equalTo(3.0));
+    }
+
+    @Test
+    void testAttackBase() {
+        PlayableCard bomber = getCardAndMoveToInPlay(TieBomber.class, game);
+        Base opponentBase = game.getCurrentPlayer().getOpponent().getCurrentBase();
+        game.applyAction(opponentBase.getId());
+        assertThat(game.getReward(), equalTo(1.0));
+        game.applyAction(bomber.getId());
+        assertThat(game.getReward(), equalTo(1.0));
+        game.applyAction(ActionSpace.ConfirmAttackers.getMinRange());
+        // 6.0 = 2 damage x 3 multiplier
+        assertThat(game.getReward(), equalTo(6.0));
+
+        PlayableCard atst = getCardAndMoveToInPlay(AtSt.class, game);
+        PlayableCard atat = getCardAndMoveToInPlay(AtAt.class, game);
+        game.applyAction(opponentBase.getId());
+        assertThat(game.getReward(), equalTo(1.0));
+        game.applyAction(atst.getId());
+        assertThat(game.getReward(), equalTo(1.0));
+        game.applyAction(atat.getId());
+        assertThat(game.getReward(), equalTo(1.0));
+        game.applyAction(ActionSpace.ConfirmAttackers.getMinRange());
+        // 18 = 6 remaining health * 3. 50 is for bonus for base destroyed
+        assertThat(game.getReward(), equalTo(18.0 + 50.0));
+    }
+
+    @Test
+    void testAttackCenterRow() {
+        PlayableCard leia = getFromCardMap(PrincessLeia.class, game.getCardMap());
+        leia.moveToGalaxyRow();
+        PlayableCard atat = getCardAndMoveToInPlay(AtAt.class, game);
+        game.applyAction(leia.getId());
+        assertThat(game.getReward(), equalTo(1.0));
+
+        game.applyAction(atat.getId());
+        assertThat(game.getReward(), equalTo(1.0));
+
+        game.applyAction(ActionSpace.ConfirmAttackers.getMinRange());
+        assertThat(game.getReward(), equalTo(6.0));
+
+        game.initialize();
+        PlayableCard atst = getCardAndMoveToInPlay(AtSt.class, game);
+        PlayableCard veers = getCardAndMoveToInPlay(GeneralVeers.class, game);
+        PlayableCard falcon = getFromCardMap(MillenniumFalcon.class, game.getCardMap());
+        falcon.moveToGalaxyRow();
+
+        game.applyAction(falcon.getId());
+        assertThat(game.getReward(), equalTo(1.0));
+
+        game.applyAction(atst.getId());
+        assertThat(game.getReward(), equalTo(1.0));
+
+        game.applyAction(veers.getId());
+        assertThat(game.getReward(), equalTo(1.0));
+
+        game.applyAction(ActionSpace.ConfirmAttackers.getMinRange());
+        assertThat(game.getReward(), equalTo(5.0));
+    }
+
+    @Test
+    void testPassWithGoodActionsLeft() {
+        // test pass with cards in hand
+        game.applyAction(ActionSpace.PassTurn.getMinRange());
+        assertThat(game.getReward(), equalTo(Game.INVALID_ACTION_REWARD));
+
+        // Test pass with valid attack
+        game.initialize();
+        getCardAndMoveToInPlay(BobaFett.class, game);
+        emptyHand(game.getCurrentPlayer());
+        game.applyAction(ActionSpace.PassTurn.getMinRange());
+        assertThat(game.getReward(), equalTo(Game.INVALID_ACTION_REWARD));
+    }
+
+    private static void moveCardToInPlay(PlayableCard card, Game game) {
+        card.buyToHand(game.getCurrentPlayer());
+        card.moveToInPlay();
+    }
+
+    private static PlayableCard getCardAndMoveToInPlay(Class<? extends Card> classType, Game game) {
+        PlayableCard card = getFromCardMap(classType, game.getCardMap());
+        moveCardToInPlay(card, game);
+        return card;
+    }
+
     private static void logCardList(List<? extends Card> cards, CardLocation cardLocation) {
         StringBuilder builder = new StringBuilder();
         builder.append("Location: ")
@@ -484,6 +630,17 @@ class GameTest {
         }
         builder.append("]");
         System.out.println(builder);
+    }
+
+    private static PlayableCard getFromCardMap(Class<? extends Card> classType, Map<Integer, Card> cardMap) {
+        Card card = cardMap.values().stream().filter(c -> c.getClass() == classType).findFirst().orElse(null);
+        if (card == null) {
+            return null;
+        }
+        if (card instanceof PlayableCard playableCard) {
+            return playableCard;
+        }
+        return null;
     }
 
     private static Stream<Arguments> invalidPendingActionsEmpire() {

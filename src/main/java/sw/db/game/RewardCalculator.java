@@ -5,15 +5,14 @@ import sw.db.cards.common.models.Faction;
 
 public class RewardCalculator {
 
-    private int startingResources;
-    private int cardInDeckAndDiscard;
-    private int availableAttack;
+    private final int startingResources;
+    private final int cardInDeckAndDiscard;
+    private final int availableAttack;
     private boolean shouldSkip = false;
-    private int numAttackers;
-    private int forcePosition;
+    private final int forcePosition;
     private int baseHealth;
-    private int shipsInPlay;
-    private int damageOnShips;
+    private final int shipsInPlay;
+    private final int damageOnShips;
     public RewardCalculator(final Game game) {
         if (game.getCurrentPlayer().getFaction() != game.getCurrentPlayersAction()) {
             shouldSkip = true;
@@ -22,7 +21,6 @@ public class RewardCalculator {
         startingResources = player.getResources();
         cardInDeckAndDiscard = player.getDeck().size() + player.getDiscard().size();
         availableAttack = player.getAvailableAttack();
-        numAttackers = game.getAttackers().size();
         forcePosition = game.getForceBalance().getPosition();
         if (player.getOpponent().getCurrentBase() != null) {
             baseHealth = player.getOpponent().getCurrentBase().getRemainingHealth();
@@ -30,7 +28,7 @@ public class RewardCalculator {
         shipsInPlay = player.getOpponent().getShipsInPlay().size();
         damageOnShips = player.getOpponent().getShipsInPlay().stream()
                 .map(CapitalShip::getRemainingHealth)
-                .reduce(0, (a, b) -> a + b);
+                .reduce(0, Integer::sum);
 
     }
 
@@ -44,16 +42,13 @@ public class RewardCalculator {
         if (resourceDiff > 0) {
             reward += resourceDiff;
         }
-        int cardInDeckAndDiscardDiff = cardInDeckAndDiscard - player.getDeck().size() + player.getDiscard().size();
+        int cardInDeckAndDiscardDiff = cardInDeckAndDiscard - (player.getDeck().size() + player.getDiscard().size());
         if (cardInDeckAndDiscardDiff > 0) {
-            reward += cardInDeckAndDiscardDiff;
+            reward += cardInDeckAndDiscardDiff * 2;
         }
         int attackDiff = player.getAvailableAttack() - availableAttack;
         if (attackDiff > 0) {
             reward += attackDiff;
-        }
-        if (game.getAttackers().size() > numAttackers) {
-            reward += 2;
         }
         int newForcePos = game.getForceBalance().getPosition();
         int forceDiff = player.getFaction() == Faction.empire ? forcePosition - newForcePos : newForcePos - forcePosition;
@@ -65,6 +60,7 @@ public class RewardCalculator {
         }
         if (player.getOpponent().getCurrentBase() == null) {
             reward += 50;
+            reward += baseHealth * 3;
         } else {
             int healthDiff = baseHealth - player.getOpponent().getCurrentBase().getRemainingHealth();
             if (healthDiff > 0) {
@@ -77,9 +73,24 @@ public class RewardCalculator {
         } else {
             int shipDamageDiff = damageOnShips - player.getOpponent().getShipsInPlay().stream()
                     .map(CapitalShip::getRemainingHealth)
-                    .reduce(0, (a, b) -> a + b);
+                    .reduce(0, Integer::sum);
             if (shipDamageDiff > 0) {
                 reward += shipDamageDiff;
+            }
+        }
+        if (!game.getPendingActions().isEmpty()) {
+            PendingAction pendingAction = game.getPendingActions().get(0);
+            switch (pendingAction.getAction()) {
+                case ReturnCardToHand -> reward += 2.0;
+                case DiscardFromHand, DurosDiscard, BWingDiscard -> {
+                    if (pendingAction.shouldPassAction()) reward += 2.0;
+                }
+                case PurchaseCard -> {
+                    if (game.getStaticEffects().contains(StaticEffect.NextFactionPurchaseIsFree) ||
+                            game.getStaticEffects().contains(StaticEffect.NextFactionOrNeutralPurchaseIsFree)) {
+                        reward += 5.0;
+                    }
+                }
             }
         }
         return reward;
